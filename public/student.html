@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>Raqamli qaramlik va ta’lim — test</title>
+<link rel="stylesheet" href="/static/common.css">
+<style>
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 40px}
+.top{display:flex;align-items:center;gap:10px;padding:8px 0 16px;color:var(--muted);font-size:14px}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700}
+.hero h1{font-size:26px;margin-bottom:8px}
+.stack>*+*{margin-top:16px}
+.prog{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:8px;font-weight:600}
+.bar{height:10px;background:#e8edf4;border-radius:99px;overflow:hidden}.bar>i{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .25s}
+.dim{font-size:13px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.q{font-size:20px;font-weight:650;margin-bottom:18px}
+.opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:14px;margin-top:10px;color:var(--ink);min-height:56px}
+.opt:hover{border-color:#9db9f5;background:#f7faff}
+.opt .l{flex:none;width:30px;height:30px;border-radius:50%;background:#eef2f8;display:grid;place-items:center;font-weight:700;font-size:14px}
+.opt.sel{border-color:var(--brand);background:var(--brand-l)}.opt.sel .l{background:var(--brand);color:#fff}
+.nav{display:flex;gap:10px;margin-top:20px}.nav .btn{flex:1}.nav .btn.secondary{flex:0 0 auto}
+.banner{background:#fff4d6;border:1px solid #f1d58a;color:#6b4a00;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:12px}
+.score{font-size:64px;font-weight:800;line-height:1;color:var(--brand)}.score small{font-size:24px;color:var(--muted);font-weight:600}
+.row{margin-top:14px}.row .t{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin-bottom:6px}.row .t b{white-space:nowrap}
+.note{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;margin-top:20px}
+.quote{background:var(--brand-l);border-radius:12px;padding:14px 16px;margin-top:16px}
+@media(min-width:700px){.q{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="logo">T</div><div>Raqamli qaramlik va ta’lim: texnologiya yordamchimi yoki to‘siq?</div></div>
+  <div id="app" class="stack"><div class="card muted">Yuklanmoqda…</div></div>
+</div>
+<script src="/static/questions.js"></script>
+<script>
+(function(){
+  var code = location.pathname.split("/").filter(Boolean).pop().toUpperCase();
+  var TK = "tok_" + code, AK = "ans_" + code, IK = "idx_" + code;
+  var app = document.getElementById("app");
+  var Q = TEST.QUESTIONS, L = TEST.LETTERS;
+  var state = { student: null, answers: {}, idx: 0, dirty: false, offline: false, token: null };
+  function ls(k, v){ try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k, v);}catch(e){return null;} }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+  function post(url, body){
+    return fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)})
+      .then(function(r){ return r.json().then(function(j){ if(!r.ok){ var e=new Error(j.error||"Xatolik"); e.status=r.status; e.data=j; throw e; } return j; }); });
+  }
+  function count(){ return Object.keys(state.answers).length; }
+  function saveLocal(){ ls(AK, JSON.stringify(state.answers)); ls(IK, String(state.idx)); }
+
+  // --- javoblarni serverga yuborish (internet uzilsa, telefonda saqlanadi va qayta uriniladi) ---
+  var flushing = false;
+  function flush(){
+    if(!state.token || flushing || !state.dirty) return Promise.resolve();
+    flushing = true;
+    var snapshot = JSON.stringify(state.answers);
+    return post("/api/answers", {token:state.token, answers:state.answers}).then(function(){
+      if(JSON.stringify(state.answers) === snapshot) state.dirty = false;
+      setOffline(false);
+    }).catch(function(e){
+      if(e.status && e.status !== 0 && e.status < 500){ state.dirty = false; if(e.status===403) setOffline(false); }
+      else setOffline(true);
+    }).then(function(){ flushing = false; });
+  }
+  function setOffline(v){ if(state.offline!==v){ state.offline=v; var b=document.getElementById("banner"); if(b) b.classList.toggle("hidden", !v); } }
+  setInterval(function(){ if(state.dirty) flush(); }, 4000);
+  window.addEventListener("online", function(){ flush(); });
+
+  // --- ekranlar ---
+  function msg(title, text){ app.innerHTML = '<div class="card"><h2>'+esc(title)+'</h2><p class="muted">'+esc(text)+'</p></div>'; }
+
+  function viewName(){
+    app.innerHTML = '<div class="card hero stack"><div><h1>Xush kelibsiz!</h1><p class="muted" style="margin:0">Talabalarning raqamli texnologiyalardan foydalanish odatlarini aniqlashga mo‘ljallangan qisqa o‘zini baholash testi (20 ta savol, taxminan 5 daqiqa).</p></div>'+
+      '<form id="f" class="stack"><label for="nm" style="font-weight:600">Ismingiz</label><input id="nm" type="text" autocomplete="given-name" maxlength="40" placeholder="Masalan: Gulasal" required>'+
+      '<div class="err" id="err"></div><button class="btn" type="submit" style="width:100%">Kirish</button></form></div>';
+    var f = document.getElementById("f");
+    f.onsubmit = function(e){
+      e.preventDefault();
+      var name = document.getElementById("nm").value.trim(), err = document.getElementById("err");
+      if(name.length < 2){ err.textContent = "Ismingizni kiriting (kamida 2 ta belgi)"; return; }
+      f.querySelector("button").disabled = true;
+      post("/api/join", {code:code, name:name, token:state.token}).then(function(r){
+        state.token = r.token; ls(TK, r.token); setStudent(r.student); route();
+      }).catch(function(e){ err.textContent = e.message || "Aloqa xatosi. Qayta urinib ko‘ring."; f.querySelector("button").disabled = false; });
+    };
+  }
+
+  function viewIntro(){
+    app.innerHTML = '<div class="card stack"><h1 style="font-size:24px">Salom, '+esc(state.student.name)+'!</h1>'+
+      '<p class="muted" style="margin:0">Har bir savolda o‘zingizning odatiy xatti-harakatingizga eng mos javobni tanlang. To‘g‘ri yoki noto‘g‘ri javob yo‘q. Natijangizni faqat o‘zingiz ko‘rasiz.</p>'+
+      '<button class="btn" id="go" style="width:100%">Testni boshlash</button><div class="err" id="err"></div></div>';
+    document.getElementById("go").onclick = function(){
+      this.disabled = true;
+      post("/api/start", {token:state.token}).then(function(r){ setStudent(r.student); route(); })
+        .catch(function(e){ document.getElementById("err").textContent = e.message; document.getElementById("go").disabled = false; });
+    };
+  }
+
+  function viewQuiz(){
+    var q = Q[state.idx], pct = Math.round(count() / Q.length * 100), dim = TEST.DIMENSIONS.filter(function(d){return q.n>=d.from && q.n<=d.to;})[0];
+    var cur = state.answers[q.n], last = state.idx === Q.length - 1;
+    var html = '<div id="banner" class="banner '+(state.offline?'':'hidden')+'">Internet aloqasi uzildi. Javoblaringiz telefonda saqlanmoqda va aloqa tiklanganda avtomatik yuboriladi.</div>'+
+      '<div class="card"><div class="prog"><span>'+(state.idx+1)+'/'+Q.length+'</span><span>Bajarilgan: '+pct+'%</span></div><div class="bar"><i style="width:'+pct+'%"></i></div></div>'+
+      '<div class="card"><div class="dim">'+esc(dim.name)+'</div><div class="q">'+q.n+'. '+esc(q.q)+'</div><div id="opts">';
+    q.o.forEach(function(t,i){ html += '<button type="button" class="opt'+(cur===i?' sel':'')+'" data-i="'+i+'"><span class="l">'+L[i]+'</span><span>'+esc(t)+'</span></button>'; });
+    html += '</div><div class="err" id="err" style="margin-top:10px"></div><div class="nav">'+
+      (state.idx>0?'<button class="btn secondary" id="prev">← Orqaga</button>':'')+
+      '<button class="btn" id="next"'+(cur===undefined?' disabled':'')+'>'+(last?'Testni yakunlash':'Keyingi savol')+'</button></div></div>';
+    app.innerHTML = html;
+    Array.prototype.forEach.call(document.querySelectorAll(".opt"), function(b){
+      b.onclick = function(){
+        state.answers[q.n] = Number(b.getAttribute("data-i")); state.dirty = true; saveLocal(); flush();
+        Array.prototype.forEach.call(document.querySelectorAll(".opt"), function(x){ x.classList.toggle("sel", x===b); });
+        document.getElementById("next").disabled = false; document.getElementById("err").textContent = "";
+        var pb = document.querySelector(".bar>i"), p = Math.round(count()/Q.length*100); pb.style.width = p+"%";
+        document.querySelector(".prog span:last-child").textContent = "Bajarilgan: "+p+"%";
+      };
+    });
+    var pv = document.getElementById("prev"); if(pv) pv.onclick = function(){ state.idx--; saveLocal(); viewQuiz(); };
+    document.getElementById("next").onclick = function(){
+      if(state.answers[q.n] === undefined) return;
+      if(!last){ state.idx++; saveLocal(); viewQuiz(); window.scrollTo(0,0); return; }
+      finish();
+    };
+  }
+
+  function finish(){
+    var missing = Q.filter(function(q){ return state.answers[q.n] === undefined; });
+    if(missing.length){ state.idx = missing[0].n - 1; viewQuiz(); document.getElementById("err").textContent = "Yakunlashdan oldin barcha savollarga javob bering. Javobsiz savollar: " + missing.map(function(q){return q.n;}).join(", "); return; }
+    var btn = document.getElementById("next"), err = document.getElementById("err"); btn.disabled = true; btn.textContent = "Yuborilmoqda…";
+    post("/api/finish", {token:state.token, answers:state.answers}).then(function(r){
+      setStudent(r.student); setOffline(false); route();
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = "Testni yakunlash";
+      err.textContent = e.status && e.status < 500 ? e.message : "Aloqa xatosi. Javoblaringiz saqlangan — internetni tekshirib, qayta bosing.";
+    });
+  }
+
+  function viewResult(){
+    var r = state.student.result, cls = {low:"b-low",mid:"b-mid",good:"b-good",high:"b-high"}[r.categoryKey];
+    var color = {low:"var(--low)",mid:"var(--mid)",good:"var(--good)",high:"var(--high)"}[r.categoryKey];
+    var sc = String(r.score).replace(".", ",");
+    var h = '<div class="card"><div class="muted">'+esc(state.student.name)+', sizning natijangiz</div><div class="score" style="margin-top:8px">'+sc+'<small>/100</small></div>'+
+      '<div style="margin-top:12px"><span class="badge '+cls+'">'+esc(r.category)+'</span></div>'+
+      '<p style="margin:14px 0 0">'+esc(r.text)+'</p><div class="quote"><b>Tavsiya.</b> '+esc(r.tip)+'</div></div>'+
+      '<div class="card"><h3 style="margin-bottom:6px">Besh yo‘nalish bo‘yicha natijalar</h3>';
+    r.dims.forEach(function(d){
+      h += '<div class="row"><div class="t"><span>'+esc(d.name)+'</span><b>'+String(d.score).replace(".",",")+'/20 · '+String(d.percent).replace(".",",")+'/100</b></div><div class="bar"><i style="width:'+d.percent+'%;background:'+color+'"></i></div></div>';
+    });
+    h += '<div class="note">Bu test klinik tashxis yoki tibbiy xulosa bermaydi. Natijalar faqat ta’limiy-psixologik o‘zini baholash va darsdagi muhokama uchun ishlatiladi. Natijangizni faqat siz ko‘rasiz.</div></div>';
+    app.innerHTML = h;
+  }
+
+  function setStudent(s){
+    state.student = s;
+    // serverdagi javoblar + telefondagi (hali yuborilmagan) javoblar birlashtiriladi
+    var local = {}; try{ local = JSON.parse(ls(AK) || "{}"); }catch(e){}
+    var merged = {}, k;
+    for(k in s.answers) merged[k] = s.answers[k];
+    if(s.status !== "finished") for(k in local) if(merged[k] === undefined){ merged[k] = local[k]; state.dirty = true; }
+    state.answers = merged;
+    if(s.status === "finished"){ ls(AK, null); ls(IK, null); }
+    else{
+      var i = parseInt(ls(IK) || "0", 10);
+      if(!(i >= 0 && i < Q.length)) i = 0;
+      var first = Q.filter(function(q){ return merged[q.n] === undefined; })[0];
+      state.idx = (state.idx > 0 ? state.idx : (i || (first ? first.n - 1 : 0)));
+    }
+  }
+
+  function route(){
+    var s = state.student;
+    if(!s) return viewName();
+    if(s.status === "finished") return viewResult();
+    if(s.status === "joined") return viewIntro();
+    if(s.sessionStatus !== "active" && !s.canContinue){ /* ustoz yopgan bo‘lsa ham, boshlaganlar tugatishi mumkin (server nazorat qiladi) */ }
+    viewQuiz(); flush();
+  }
+
+  // --- start ---
+  state.token = ls(TK);
+  fetch("/api/session?code="+encodeURIComponent(code)).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); }).then(function(r){
+    if(!r.ok) return msg("Sessiya topilmadi", "QR-kodni qayta skanerlang yoki ustozdan yangi havolani so‘rang.");
+    var sessionStatus = r.j.status;
+    if(state.token){
+      return fetch("/api/me?token="+encodeURIComponent(state.token)).then(function(m){ return m.ok ? m.json() : null; }).then(function(m){
+        if(m && m.student && m.student.code === code){ setStudent(m.student); return route(); }
+        state.token = null; ls(TK, null);
+        if(sessionStatus !== "active") return msg("Test yopilgan", "Bu test sessiyasi ustoz tomonidan yakunlangan.");
+        viewName();
+      });
+    }
+    if(sessionStatus !== "active") return msg("Test yopilgan", "Bu test sessiyasi ustoz tomonidan yakunlangan.");
+    viewName();
+  }).catch(function(){
+    if(state.token){ // oflayn: telefondagi ma’lumotdan davom etamiz
+      var local = {}; try{ local = JSON.parse(ls(AK) || "{}"); }catch(e){}
+      state.answers = local; state.dirty = true; state.idx = parseInt(ls(IK)||"0",10)||0; state.offline = true;
+      state.student = {name:"", status:"in_progress", answers:local, sessionStatus:"active", code:code}; viewQuiz();
+    } else msg("Aloqa yo‘q", "Internetga ulanib, sahifani yangilang.");
+  });
+})();
+</script>
+</body>
+</html>

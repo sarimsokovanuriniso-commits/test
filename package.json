@@ -1,0 +1,9 @@
+{
+  "name": "raqamli-qaramlik-test",
+  "version": "1.0.0",
+  "description": "QR-kod orqali ishlaydigan interaktiv psixologik test (Raqamli qaramlik va ta’lim)",
+  "main": "server.js",
+  "scripts": { "start": "node --no-warnings server.js" },
+  "engines": { "node": ">=22.5" },
+  "license": "MIT"
+}

@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: raqamli-qaramlik-test
+    runtime: docker
+    plan: starter          # doimiy disk uchun pullik reja kerak (bepul rejada ma’lumotlar qayta ishga tushganda o‘chadi)
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: TEACHER_PASSWORD
+        sync: false        # Render panelida o‘zingiz kiritasiz
+      - key: DB_PATH
+        value: /data/app.db

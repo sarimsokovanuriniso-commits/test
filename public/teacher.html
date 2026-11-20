@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ustoz paneli — Raqamli qaramlik va ta’lim</title>
+<link rel="stylesheet" href="/static/common.css">
+<style>
+.wrap{max-width:1280px;margin:0 auto;padding:20px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:20px}
+header h1{font-size:22px}header p{margin:2px 0 0;font-size:14px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.actions select{width:auto;padding:9px 12px;font-size:14px}
+.grid{display:grid;gap:16px}
+.stats{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.stat .n{font-size:34px;font-weight:800;line-height:1.1}.stat .t{font-size:14px;color:var(--muted)}
+.main{grid-template-columns:minmax(0,1fr);margin-top:16px}
+@media(min-width:1000px){.main{grid-template-columns:340px minmax(0,1fr)}}
+.qrbox{text-align:center}.qrbox svg{width:100%;max-width:280px;height:auto;border-radius:12px;border:1px solid var(--line)}
+.link{font-size:13px;word-break:break-all;margin-top:10px;background:#f1f5f9;border-radius:8px;padding:8px 10px}
+.code{font-size:28px;font-weight:800;letter-spacing:.12em;margin-top:8px}
+.roster{max-height:340px;overflow:auto;margin:8px 0 0;padding:0;list-style:none}
+.roster li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;background:#b8c2d0}.dot.w{background:#2563eb}.dot.f{background:#2f855a}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+th{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap}
+th.s{cursor:pointer;user-select:none}th.s:hover{color:var(--brand)}
+.tw{overflow-x:auto}
+.charts{grid-template-columns:repeat(auto-fit,minmax(340px,1fr));margin-top:16px}
+.charts h3{font-size:16px;margin-bottom:12px}
+.mm{display:flex;gap:10px;flex-wrap:wrap}.mm div{flex:1;min-width:90px;background:#f6f8fb;border-radius:12px;padding:12px;text-align:center}.mm b{display:block;font-size:28px}.mm span{font-size:13px;color:var(--muted)}
+.hb{display:grid;grid-template-columns:minmax(120px,38%) 1fr 56px;gap:10px;align-items:center;margin:10px 0;font-size:14px}
+.hb .tr{height:14px;background:#edf1f6;border-radius:0 7px 7px 0;overflow:hidden}.hb .tr i{display:block;height:100%;border-radius:0 7px 7px 0}
+.hb .v{text-align:right;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;margin-top:8px;color:var(--muted)}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+.login{max-width:380px;margin:12vh auto}
+.empty{color:var(--muted);text-align:center;padding:24px 0}
+#fs{position:fixed;inset:0;background:#fff;z-index:50;display:grid;place-items:center;text-align:center;padding:20px}
+#fs svg{width:min(78vh,90vw);height:auto}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.live i{width:8px;height:8px;border-radius:50%;background:#2f855a;animation:p 1.6s infinite}.live.off i{background:#c8374b;animation:none}
+@keyframes p{50%{opacity:.3}}
+.scroll-x{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="login" class="card login hidden">
+    <h1 style="margin-bottom:6px">Ustoz paneli</h1>
+    <p class="muted" style="margin-top:0">Raqamli qaramlik va ta’lim: texnologiya yordamchimi yoki to‘siq?</p>
+    <form id="lf"><input id="pw" type="password" placeholder="Parol" autocomplete="current-password" style="margin:12px 0 8px">
+    <div class="err" id="lerr"></div><button class="btn" style="width:100%">Kirish</button></form>
+  </div>
+
+  <div id="panel" class="hidden">
+    <header>
+      <div><h1>Ustoz paneli</h1><p class="muted">Raqamli qaramlik va ta’lim: texnologiya yordamchimi yoki to‘siq? · <span class="live" id="live"><i></i><span>real vaqt</span></span></p></div>
+      <div class="actions">
+        <select id="sel" title="Sessiyalar tarixi"></select>
+        <button class="btn" id="bStart">Testni boshlash</button>
+        <button class="btn danger" id="bEnd">Testni yakunlash</button>
+        <button class="btn secondary" id="bNew" title="Joriy sessiyani yopib, yangisini boshlaydi">Yangi sessiya</button>
+        <button class="btn secondary" id="bCsv">⬇ Excel/CSV</button>
+        <button class="btn secondary" id="bOut">Chiqish</button>
+      </div>
+    </header>
+
+    <div id="noSess" class="card empty hidden">Hali test sessiyasi yo‘q. «Testni boshlash» tugmasini bosing — ekranda QR-kod paydo bo‘ladi.</div>
+
+    <div id="body" class="hidden">
+      <div class="grid stats">
+        <div class="card stat"><div class="n" id="cJ">0</div><div class="t">Testga qo‘shilgan talabalar</div></div>
+        <div class="card stat"><div class="n" id="cS">0</div><div class="t">Testni boshlaganlar</div></div>
+        <div class="card stat"><div class="n" id="cF">0</div><div class="t">Testni yakunlaganlar</div></div>
+        <div class="card stat"><div class="n" id="cW">0</div><div class="t">Hozir test ishlayotganlar</div></div>
+      </div>
+
+      <div class="grid main">
+        <div class="grid" style="align-content:start">
+          <div class="card qrbox" id="qrCard">
+            <div id="qrSvg"></div>
+            <div class="code" id="code"></div>
+            <div class="link" id="link"></div>
+            <div id="baseWrap" class="hidden" style="margin-top:10px;text-align:left"><label class="muted" style="font-size:13px">Havola manzili (talabalar telefonidan ochiladigan manzil)</label><input type="text" id="base" style="padding:8px 10px;font-size:13px"></div>
+            <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn small" id="bFs">Butun ekranda ko‘rsatish</button><button class="btn small secondary" id="bCp">Havolani nusxalash</button></div>
+            <div class="muted" id="closedNote" style="margin-top:10px;font-size:14px"></div>
+          </div>
+          <div class="card"><h3>Talabalar ro‘yxati</h3><ul class="roster" id="roster"></ul></div>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:10px">Natijalar jadvali</h3>
+          <div class="tw"><table><thead><tr><th class="s" data-k="n">№ ↕</th><th class="s" data-k="name">Talabaning ismi ↕</th><th class="s" data-k="score">To‘plagan bali ↕</th><th>Natija</th></tr></thead><tbody id="rows"></tbody></table></div>
+          <div class="muted" style="font-size:13px;margin-top:10px">Ustun sarlavhasini bosing — saralash. Ball bo‘yicha saralash uchun «To‘plagan bali»ni bosing.</div>
+        </div>
+      </div>
+
+      <div class="grid charts">
+        <div class="card" style="grid-column:1/-1"><h3>Har bir talabaning natijasi (100 ball)</h3><div class="scroll-x" id="chStu"></div></div>
+        <div class="card"><h3>Guruh bo‘yicha ko‘rsatkichlar</h3><div class="mm"><div><b id="mAvg">–</b><span>O‘rtacha ball</span></div><div><b id="mMax">–</b><span>Eng yuqori</span></div><div><b id="mMin">–</b><span>Eng past</span></div></div></div>
+        <div class="card"><h3>Natija toifalari bo‘yicha talabalar soni</h3><div id="chCat"></div></div>
+        <div class="card" style="grid-column:1/-1"><h3>Besh psixologik yo‘nalish bo‘yicha o‘rtacha ball</h3><div id="chDim"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="fs" class="hidden"><div><div id="fsQr"></div><div class="code" id="fsCode" style="font-size:40px"></div><div class="link" id="fsLink" style="font-size:20px"></div><button class="btn secondary" id="fsX" style="margin-top:16px">Yopish</button></div></div>
+
+<script src="/static/questions.js"></script>
+<script src="/static/qr.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var COL = {low:"#c8374b", mid:"#c98a0b", good:"#0e7490", high:"#2f855a"};
+  var BADGE = {low:"b-low", mid:"b-mid", good:"b-good", high:"b-high"};
+  var S = null, selected = null, sort = {k:"n", dir:1}, es = null, loading = false, again = false;
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+  function fmt(n){ return n==null ? "–" : (Math.round(n*10)/10).toString().replace(".",","); }
+  function api(url, opt){ return fetch(url, opt).then(function(r){ if(r.status===401){ showLogin(); throw new Error("401"); } return r.json(); }); }
+
+  function showLogin(){ $("panel").classList.add("hidden"); $("login").classList.remove("hidden"); if(es){es.close();es=null;} }
+  function showPanel(){ $("login").classList.add("hidden"); $("panel").classList.remove("hidden"); connect(); load(); }
+
+  $("lf").onsubmit = function(e){ e.preventDefault(); $("lerr").textContent="";
+    fetch("/api/teacher/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:$("pw").value})})
+      .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error); showPanel(); }); })
+      .catch(function(e){ $("lerr").textContent = e.message || "Xatolik"; }); };
+  $("bOut").onclick = function(){ fetch("/api/teacher/logout",{method:"POST"}).then(function(){ $("pw").value=""; showLogin(); }); };
+
+  function connect(){
+    if(es) es.close();
+    es = new EventSource("/api/teacher/stream");
+    es.addEventListener("update", function(){ load(); });
+    es.onopen = function(){ $("live").classList.remove("off"); load(); };
+    es.onerror = function(){ $("live").classList.add("off"); };
+  }
+  setInterval(function(){ if(!$("panel").classList.contains("hidden")) load(); }, 5000); // zaxira: SSE uzilsa ham yangilanadi
+
+  function load(){
+    if(loading){ again = true; return; } loading = true;
+    api("/api/teacher/state" + (selected ? "?session="+selected : "")).then(function(s){ S = s; render(); })
+      .catch(function(){}).then(function(){ loading=false; if(again){ again=false; load(); } });
+  }
+
+  // --- boshqaruv ---
+  $("bStart").onclick = function(){ selected=null; api("/api/teacher/session/start",{method:"POST"}).then(load); };
+  $("bEnd").onclick = function(){ if(confirm("Testni yakunlaysizmi? Yangi talabalar qo‘shila olmaydi.")) api("/api/teacher/session/end",{method:"POST"}).then(load); };
+  $("bNew").onclick = function(){ if(!S.active || confirm("Joriy sessiya yopiladi (natijalar saqlanadi) va yangi QR-kod yaratiladi. Davom etasizmi?")){ selected=null; api("/api/teacher/session/start",{method:"POST"}).then(load); } };
+  $("bCsv").onclick = function(){ if(S && S.session) location.href = "/api/teacher/export?session="+S.session.id; };
+  $("sel").onchange = function(){ selected = $("sel").value; load(); };
+  $("bFs").onclick = function(){ $("fs").classList.remove("hidden"); };
+  $("fsX").onclick = function(){ $("fs").classList.add("hidden"); };
+  $("bCp").onclick = function(){ var t=joinUrl(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ $("bCp").textContent="Nusxalandi ✓"; setTimeout(function(){$("bCp").textContent="Havolani nusxalash";},1500); }).catch(function(){ prompt("Havolani nusxalang:", t); }); };
+  $("base").onchange = function(){ try{ localStorage.setItem("baseUrl", $("base").value.trim().replace(/\/+$/,"")); }catch(e){} render(); };
+  document.querySelectorAll("th.s").forEach(function(th){ th.onclick = function(){ var k=th.getAttribute("data-k"); sort = sort.k===k ? {k:k,dir:-sort.dir} : {k:k, dir:k==="score"?-1:1}; renderTable(); }; });
+
+  function isLocal(){ return /^(localhost|127\.|\[::1\])/.test(location.hostname); }
+  function baseUrl(){
+    var saved=null; try{ saved = localStorage.getItem("baseUrl"); }catch(e){}
+    if(S && S.publicUrl) return S.publicUrl;
+    if(isLocal()){ if(saved) return saved; if(S && S.lan && S.lan[0]) return "http://"+S.lan[0]+":"+(location.port||80); }
+    return location.origin;
+  }
+  function joinUrl(){ return baseUrl() + "/s/" + S.session.code; }
+
+  // --- chizish ---
+  function render(){
+    var has = !!(S && S.session);
+    $("noSess").classList.toggle("hidden", has); $("body").classList.toggle("hidden", !has);
+    $("bStart").classList.toggle("hidden", !!S.active); $("bEnd").classList.toggle("hidden", !S.active);
+    $("bNew").classList.toggle("hidden", !has); $("bCsv").disabled = !has;
+    // sessiyalar ro‘yxati
+    var sel = $("sel"), cur = has ? String(S.session.id) : "";
+    sel.innerHTML = S.sessions.map(function(s,i){ return '<option value="'+s.id+'"'+(String(s.id)===cur?' selected':'')+'>'+(s.status==="active"?"● ":"")+"Sessiya "+s.code+" · "+new Date(s.created_at).toLocaleString("uz-UZ",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" ("+s.finished+"/"+s.total+")</option>"; }).join("");
+    sel.classList.toggle("hidden", !S.sessions.length);
+    if(!has) return;
+    var c = S.counts; $("cJ").textContent=c.joined; $("cS").textContent=c.started; $("cF").textContent=c.finished; $("cW").textContent=c.working;
+
+    var url = joinUrl(), live = S.session.status === "active";
+    $("qrSvg").innerHTML = QR.toSVG(url); $("qrSvg").style.opacity = live ? 1 : .35;
+    $("code").textContent = S.session.code; $("link").textContent = url;
+    $("fsQr").innerHTML = QR.toSVG(url); $("fsCode").textContent = S.session.code; $("fsLink").textContent = url;
+    $("closedNote").textContent = live ? "Talabalar telefon kamerasi bilan QR-kodni skanerlaydi." : "Bu sessiya yopilgan — yangi talabalar qo‘shila olmaydi.";
+    $("bFs").classList.toggle("hidden", !live);
+    $("baseWrap").classList.toggle("hidden", !isLocal() || !!S.publicUrl);
+    if(document.activeElement !== $("base")) $("base").value = baseUrl();
+
+    $("roster").innerHTML = S.students.length ? S.students.map(function(s){
+      var st = s.status==="finished" ? ['f','Tugatdi'] : s.status==="in_progress" ? ['w',s.answered+'/20'] : ['','Qo‘shildi'];
+      return '<li><span><i class="dot '+st[0]+'"></i>'+esc(s.name)+'</span><span class="muted">'+st[1]+'</span></li>'; }).join("") : '<li class="muted">Hali hech kim qo‘shilmagan</li>';
+    renderTable(); renderCharts();
+  }
+
+  function renderTable(){
+    if(!S||!S.session) return;
+    var rows = S.students.slice(), k = sort.k, d = sort.dir;
+    rows.sort(function(a,b){
+      if(k==="name") return d * a.name.localeCompare(b.name,"uz");
+      if(k==="score"){ var x = a.score==null ? -1 : a.score, y = b.score==null ? -1 : b.score; return d*(x-y) || a.n-b.n; }
+      return d*(a.n-b.n);
+    });
+    $("rows").innerHTML = rows.length ? rows.map(function(s){
+      var sc = s.status==="finished" ? "<b>"+fmt(s.score)+"/100</b>" : '<span class="muted">–</span>';
+      var res = s.status==="finished" ? '<span class="badge '+BADGE[s.categoryKey]+'">'+esc(s.category)+'</span>' : s.status==="in_progress" ? '<span class="badge b-work">Jarayonda ('+s.answered+'/20)</span>' : '<span class="badge b-join">Jarayonda · boshlamagan</span>';
+      return "<tr><td>"+s.n+"</td><td>"+esc(s.name)+"</td><td>"+sc+"</td><td>"+res+"</td></tr>"; }).join("") : '<tr><td colspan="4" class="empty">Talabalar qo‘shilishini kutmoqda…</td></tr>';
+  }
+
+  function renderCharts(){
+    var fin = S.students.filter(function(s){ return s.status==="finished"; }), st = S.stats;
+    $("mAvg").textContent = fmt(st.avg); $("mMax").textContent = fmt(st.max); $("mMin").textContent = fmt(st.min);
+
+    // 1) talabalar bo‘yicha ustunli diagramma
+    if(!fin.length) $("chStu").innerHTML = '<div class="empty">Natijalar paydo bo‘lishini kutmoqda…</div>';
+    else {
+      var bw = 46, W = Math.max(fin.length*bw+50, 320), H = 260, top = 16, bot = 70, ph = H-top-bot, svg = '<svg width="'+W+'" height="'+H+'" role="img" aria-label="Talabalar natijalari">';
+      [0,25,50,75,100].forEach(function(t){ var y = top+ph-ph*t/100; svg += '<line x1="36" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="#e3e9f0"/><text x="30" y="'+(y+4)+'" font-size="11" text-anchor="end" fill="#5d6b7d">'+t+'</text>'; });
+      fin.forEach(function(s,i){
+        var h = ph*s.score/100, x = 44+i*bw, y = top+ph-h, lbl = s.name.length>9 ? s.name.slice(0,8)+"…" : s.name;
+        svg += '<g><title>'+esc(s.name)+': '+fmt(s.score)+'/100 — '+esc(s.category)+'</title><path d="M'+x+','+(top+ph)+'V'+(y+4)+'Q'+x+','+y+' '+(x+4)+','+y+'H'+(x+26)+'Q'+(x+30)+','+y+' '+(x+30)+','+(y+4)+'V'+(top+ph)+'Z" fill="'+COL[s.categoryKey]+'"/>'+
+          '<text x="'+(x+15)+'" y="'+(y-4)+'" font-size="11" font-weight="700" text-anchor="middle" fill="#16202e">'+fmt(s.score)+'</text>'+
+          '<text transform="translate('+(x+19)+','+(top+ph+12)+') rotate(40)" font-size="11" fill="#5d6b7d">'+esc(lbl)+'</text></g>';
+      });
+      $("chStu").innerHTML = svg + '</svg><div class="legend">'+S.stats.categories.map(function(c){return '<span><i style="background:'+COL[c.key]+'"></i>'+esc(c.name)+'</span>';}).join("")+'</div>';
+    }
+    // 2) toifalar
+    var mx = Math.max(1, Math.max.apply(null, st.categories.map(function(c){return c.count;})));
+    $("chCat").innerHTML = st.categories.map(function(c){ return '<div class="hb" title="'+esc(c.name)+': '+c.count+'"><span>'+esc(c.name)+'</span><div class="tr"><i style="width:'+(c.count/mx*100)+'%;background:'+COL[c.key]+'"></i></div><span class="v">'+c.count+'</span></div>'; }).join("");
+    // 3) yo‘nalishlar
+    $("chDim").innerHTML = st.dimensions.map(function(d){ var v = d.avg; return '<div class="hb" title="'+esc(d.name)+'"><span>'+esc(d.name)+'</span><div class="tr"><i style="width:'+(v==null?0:v/20*100)+'%;background:#2563eb"></i></div><span class="v">'+(v==null?"–":fmt(v)+"/20")+'</span></div>'; }).join("") +
+      '<div class="muted" style="font-size:13px">100 ballik ko‘rinishda: '+st.dimensions.map(function(d){ return fmt(d.avg==null?null:d.avg*5); }).join(" · ")+'</div>';
+  }
+
+  // boshlash: kirilganmi?
+  fetch("/api/teacher/state").then(function(r){ if(r.status===401) showLogin(); else showPanel(); }).catch(showLogin);
+})();
+</script>
+</body>
+</html>
